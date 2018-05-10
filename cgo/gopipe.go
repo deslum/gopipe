@@ -8,6 +8,10 @@ package main
 import "C"
 import "fmt"
 
+const (
+	PIPELINE = "*4\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n"
+)
+
 var pipeline []string
 
 //export add_command
@@ -20,15 +24,22 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-	str := cmdStr + "|" + hashmapStr + "|" + keyStr + "|" + valueStr
+	str := fmt.Sprintf(PIPELINE,
+		len(cmdStr), cmdStr,
+		len(hashmapStr), hashmapStr,
+		len(keyStr), keyStr,
+		len(valueStr), valueStr)
 	pipeline = append(pipeline, str)
 	return C.PyLong_FromLong(0)
 }
 
 //export execute
 func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
-	returnStr := C.CString(fmt.Sprintf("%v", pipeline))
-	return C.Py_String(returnStr)
+	var returnStr string
+	for _, pipe := range pipeline {
+		returnStr += pipe
+	}
+	return C.Py_String(C.CString(returnStr))
 }
 
 func main() {}
