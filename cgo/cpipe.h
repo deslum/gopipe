@@ -22,6 +22,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
  #define Py_LIMITED_API
  #include <Python.h>
  int PyArg_ParseTuple_String(PyObject *, char**, char**, char**, char**);
+ int PyArg_ParseTuple_LL(PyObject *, long long *);
  PyObject* Py_String(char *pystring);
 
 #line 1 "cgo-generated-wrapper"

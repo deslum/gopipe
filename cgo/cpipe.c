@@ -12,6 +12,10 @@ PyObject* Py_String(char **pystring){
     return Py_BuildValue("s", pystring);
 }
 
+int PyArg_ParseTuple_LL(PyObject * args, long long * count) {  
+    return PyArg_ParseTuple(args, "L", count);
+}
+
 static PyMethodDef CpipeMethods[] = {
     {"add_command", add_command, METH_VARARGS, ""},
     {"execute", execute, METH_VARARGS, ""},
