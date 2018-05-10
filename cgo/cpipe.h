@@ -1,6 +1,6 @@
 /* Created by "go tool cgo" - DO NOT EDIT. */
 
-/* package cgo/cgo */
+/* package _/home/yuri/src/cgo/cgo */
 
 
 #line 1 "cgo-builtin-prolog"
@@ -21,7 +21,8 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
  #define Py_LIMITED_API
  #include <Python.h>
- int PyArg_ParseTuple_Object(PyObject *, PyObject *);
+ int PyArg_ParseTuple_String(PyObject *, char**, char**, char**, char**);
+ PyObject* Py_String(char *pystring);
 
 #line 1 "cgo-generated-wrapper"
 
@@ -71,6 +72,8 @@ typedef struct { void *data; GoInt len; GoInt cap; } GoSlice;
 extern "C" {
 #endif
 
+
+extern PyObject* add_command(PyObject* p0, PyObject* p1);
 
 extern PyObject* execute(PyObject* p0, PyObject* p1);
 
