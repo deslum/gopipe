@@ -11,6 +11,7 @@ import (
 	"C"
 )
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net"
@@ -21,6 +22,12 @@ const (
 	PIPELINE = "*4\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n"
 )
 
+type Client struct {
+	sock     *net.TCPConn
+	recv_buf bytes.Buffer
+}
+
+var cli *Client
 var pipeline []string
 
 //export Connect
@@ -28,18 +35,20 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	var ip *C.char
 	var port C.longlong
 	if C.PyArg_ParseTuple_Connection(args, &ip, &port) == 0 {
+		log.Println(0)
 		return C.PyLong_FromLong(0)
 	}
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", C.GoString(ip), int(port)))
 	if err != nil {
+		log.Println(err)
 		return C.PyLong_FromLong(0)
 	}
-
-	_, err = net.DialTCP("tcp", nil, addr)
+	sock, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
+		log.Println(err)
 		return C.PyLong_FromLong(0)
 	}
-	log.Println(fmt.Sprintf("%s:%d", C.GoString(ip), int(port)))
+	cli = &Client{sock: sock}
 	return C.PyLong_FromLong(0)
 }
 
@@ -66,7 +75,9 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	var returnStr string
 	var count C.longlong
+	var err error
 	wg := new(sync.WaitGroup)
+	mu := new(sync.RWMutex)
 	ch := make(chan string)
 	if C.PyArg_ParseTuple_LL(args, &count) == 0 {
 		return C.PyLong_FromLong(0)
@@ -80,7 +91,9 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 				if !ok {
 					break
 				}
+				mu.Lock()
 				returnStr += str
+				mu.Unlock()
 			}
 		}()
 	}
@@ -89,7 +102,12 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	}
 	close(ch)
 	wg.Wait()
-	return C.Py_String(C.CString(returnStr))
+	_, err = cli.sock.Write([]byte(returnStr))
+	if err != nil {
+		log.Println(err)
+	}
+	pipeline = pipeline[:0]
+	return C.PyLong_FromLong(0)
 }
 
 func main() {}

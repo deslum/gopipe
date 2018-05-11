@@ -1,9 +1,12 @@
+#!/usr/bin/python3
 import cpipe
+from time import time
+
 cpipe.Connect("127.0.0.1", 6379)
-cpipe.add_command("hset","words","word1","1")
-cpipe.add_command("hset","words","word2","1")
-cpipe.add_command("hset","words","word3","1")
-cpipe.add_command("hset","words","word4","1")
-cpipe.add_command("hset","words","word5","1")
-cpipe.add_command("hset","words","word6","1")
-print(cpipe.execute(20))
+now = time()
+for x in range(0,90000):
+    cpipe.add_command("hset","words","word|{}".format(x),"1")
+    if x%80 == 0:
+        cpipe.execute(10)
+cpipe.execute(10)
+print(time() - now)
