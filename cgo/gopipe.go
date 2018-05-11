@@ -4,6 +4,7 @@ package main
 // #define Py_LIMITED_API
 // #include <Python.h>
 // int PyArg_ParseTuple_String(PyObject *, char**, char**, char**, char**);
+// int PyArg_ParseTuple_Connection(PyObject *, char**, long long *);
 // int PyArg_ParseTuple_LL(PyObject *, long long *);
 // PyObject* Py_String(char *pystring);
 import (
@@ -11,6 +12,8 @@ import (
 )
 import (
 	"fmt"
+	"log"
+	"net"
 	"sync"
 )
 
@@ -19,6 +22,26 @@ const (
 )
 
 var pipeline []string
+
+//export Connect
+func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var ip *C.char
+	var port C.longlong
+	if C.PyArg_ParseTuple_Connection(args, &ip, &port) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", C.GoString(ip), int(port)))
+	if err != nil {
+		return C.PyLong_FromLong(0)
+	}
+
+	_, err = net.DialTCP("tcp", nil, addr)
+	if err != nil {
+		return C.PyLong_FromLong(0)
+	}
+	log.Println(fmt.Sprintf("%s:%d", C.GoString(ip), int(port)))
+	return C.PyLong_FromLong(0)
+}
 
 //export add_command
 func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {

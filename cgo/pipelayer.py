@@ -1,4 +1,5 @@
 import cpipe
+cpipe.Connect("127.0.0.1", 6379)
 cpipe.add_command("hset","words","word1","1")
 cpipe.add_command("hset","words","word2","1")
 cpipe.add_command("hset","words","word3","1")
