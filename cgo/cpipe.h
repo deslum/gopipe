@@ -1,6 +1,6 @@
 /* Created by "go tool cgo" - DO NOT EDIT. */
 
-/* package cgo/cgo */
+/* package _/home/yuri/src/cgo/cgo */
 
 
 #line 1 "cgo-builtin-prolog"

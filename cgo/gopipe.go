@@ -11,11 +11,9 @@ import (
 	"C"
 )
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net"
-	"sync"
 )
 
 const (
@@ -23,12 +21,11 @@ const (
 )
 
 type Client struct {
-	sock     *net.TCPConn
-	recv_buf bytes.Buffer
+	sock *net.TCPConn
+	buf  string
 }
 
 var cli *Client
-var pipeline []string
 
 //export Connect
 func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
@@ -62,51 +59,21 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-	str := fmt.Sprintf(PIPELINE,
+	cli.buf += fmt.Sprintf(PIPELINE,
 		len(cmdStr), cmdStr,
 		len(hashmapStr), hashmapStr,
 		len(keyStr), keyStr,
 		len(valueStr), valueStr)
-	pipeline = append(pipeline, str)
 	return C.PyLong_FromLong(0)
 }
 
 //export execute
 func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
-	var returnStr string
-	var count C.longlong
-	var err error
-	wg := new(sync.WaitGroup)
-	mu := new(sync.RWMutex)
-	ch := make(chan string)
-	if C.PyArg_ParseTuple_LL(args, &count) == 0 {
-		return C.PyLong_FromLong(0)
-	}
-	for i := 0; i < int(count); i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				str, ok := <-ch
-				if !ok {
-					break
-				}
-				mu.Lock()
-				returnStr += str
-				mu.Unlock()
-			}
-		}()
-	}
-	for _, pipe := range pipeline {
-		ch <- pipe
-	}
-	close(ch)
-	wg.Wait()
-	_, err = cli.sock.Write([]byte(returnStr))
+	_, err := cli.sock.Write([]byte(cli.buf))
 	if err != nil {
 		log.Println(err)
 	}
-	pipeline = pipeline[:0]
+	cli.buf = ""
 	return C.PyLong_FromLong(0)
 }
 
