@@ -16,19 +16,22 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"time"
 )
 
+const BUFFERSIZE = 1024 * 1024 * 4
+
 type Client struct {
-	sock   *net.TCPConn
-	buf    bytes.Buffer
-	chunks []bytes.Buffer
+	sock    *net.TCPConn
+	buf     bytes.Buffer
+	counter int
+	chunks  map[int]bytes.Buffer
 }
 
 var cli *Client
 
 //export Connect
 func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
+
 	var ip *C.char
 	var port C.longlong
 	if C.PyArg_ParseTuple_Connection(args, &ip, &port) == 0 {
@@ -45,13 +48,17 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		log.Println(err)
 		return C.PyLong_FromLong(0)
 	}
-	cli = &Client{sock: sock}
+	cli = &Client{
+		sock:   sock,
+		chunks: make(map[int]bytes.Buffer),
+	}
+	cli.sock.SetWriteBuffer(BUFFERSIZE)
+	cli.sock.SetReadBuffer(BUFFERSIZE)
 	return C.PyLong_FromLong(0)
 }
 
 //export add_command
 func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
-	var buffer bytes.Buffer
 	var cmd, hashmap, key, value *C.char
 	if C.PyArg_ParseTuple_String(args, &cmd, &hashmap, &key, &value) == 0 {
 		return C.PyLong_FromLong(0)
@@ -63,31 +70,31 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	valueStr := C.GoString(value)
 
 	// Start
-	buffer.WriteString("*4\r\n$")
+	cli.buf.WriteString("*4\r\n$")
 	// Command
-	buffer.WriteString(strconv.Itoa(len(cmdStr)))
-	buffer.WriteString("\r\n")
-	buffer.WriteString(cmdStr)
-	buffer.WriteString("\r\n$")
+	cli.buf.WriteString(strconv.Itoa(len(cmdStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(cmdStr)
+	cli.buf.WriteString("\r\n$")
 	// Hashmap
-	buffer.WriteString(strconv.Itoa(len(hashmapStr)))
-	buffer.WriteString("\r\n")
-	buffer.WriteString(hashmapStr)
-	buffer.WriteString("\r\n$")
+	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(hashmapStr)
+	cli.buf.WriteString("\r\n$")
 	// Key
-	buffer.WriteString(strconv.Itoa(len(keyStr)))
-	buffer.WriteString("\r\n")
-	buffer.WriteString(keyStr)
-	buffer.WriteString("\r\n$")
+	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(keyStr)
+	cli.buf.WriteString("\r\n$")
 	// Value
-	buffer.WriteString(strconv.Itoa(len(valueStr)))
-	buffer.WriteString("\r\n")
-	buffer.WriteString(valueStr)
-	buffer.WriteString("\r\n")
+	cli.buf.WriteString(strconv.Itoa(len(valueStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(valueStr)
+	cli.buf.WriteString("\r\n")
 
-	cli.buf.Write(buffer.Bytes())
-	if cli.buf.Len() > 6000 {
-		cli.chunks = append(cli.chunks, cli.buf)
+	if cli.buf.Len() >= BUFFERSIZE {
+		cli.counter++
+		cli.chunks[cli.counter] = cli.buf
 		cli.buf.Reset()
 	}
 	return C.PyLong_FromLong(0)
@@ -96,19 +103,17 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 //export execute
 func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	if cli.buf.Len() > 0 {
-		cli.chunks = append(cli.chunks, cli.buf)
+		cli.counter++
+		cli.chunks[cli.counter] = cli.buf
 		cli.buf.Reset()
 	}
-
 	for _, chunk := range cli.chunks {
 		_, err := cli.sock.Write(chunk.Bytes())
 		if err != nil {
 			log.Println(err)
-			log.Fatalln(chunk.String)
 		}
-		time.Sleep(500 * time.Microsecond)
 	}
-	cli.chunks = cli.chunks[:0]
+	cli.chunks = make(map[int]bytes.Buffer)
 	return C.PyLong_FromLong(0)
 }
 

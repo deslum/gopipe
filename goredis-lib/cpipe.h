@@ -1,6 +1,6 @@
 /* Created by "go tool cgo" - DO NOT EDIT. */
 
-/* package cgo/cgo */
+/* package _/home/yuri/src/cgo/goredis-lib */
 
 
 #line 1 "cgo-builtin-prolog"
@@ -17,7 +17,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 /* Start of preamble from import "C" comments.  */
 
 
-#line 3 "/home/yuri/src/cgo/cgo/gopipe.go"
+#line 3 "/home/yuri/src/cgo/goredis-lib/gopipe.go"
 
  #define Py_LIMITED_API
  #include <Python.h>

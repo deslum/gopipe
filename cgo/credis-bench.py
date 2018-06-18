@@ -13,7 +13,7 @@ for bulk in bulks:
     now = time()
     for x in range(0, bulk):
         pipe_list.append(("hset","words","word|{}".format(x),"1",))
-        if x%1000 == 0:
+        if x%500000 == 0:
             r.execute_pipeline(*pipe_list)
             pipe_list = list()
     r.execute_pipeline(*pipe_list)
