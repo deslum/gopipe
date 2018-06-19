@@ -18,7 +18,7 @@ import (
 	"strconv"
 )
 
-const BUFFERSIZE = 1024 * 1024 * 4
+const BUFFERSIZE = 6000
 
 type Client struct {
 	sock    *net.TCPConn
@@ -52,8 +52,6 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		sock:   sock,
 		chunks: make(map[int]bytes.Buffer),
 	}
-	cli.sock.SetWriteBuffer(BUFFERSIZE)
-	cli.sock.SetReadBuffer(BUFFERSIZE)
 	return C.PyLong_FromLong(0)
 }
 
@@ -108,9 +106,10 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		cli.buf.Reset()
 	}
 	for _, chunk := range cli.chunks {
+	LAB:
 		_, err := cli.sock.Write(chunk.Bytes())
 		if err != nil {
-			log.Println(err)
+			goto LAB
 		}
 	}
 	cli.chunks = make(map[int]bytes.Buffer)
