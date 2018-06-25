@@ -9,15 +9,19 @@ import pandas as pd
 
 retry_attempts = 1
 pipe_sizes = [100, 500, 1000, 5000, 10000, 50000, 100000]
+hashmap_sizes = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+
+HOST = '127.0.0.1'
+PORT = 6379
 
 # Credis connection
 r = credis.Connection()
 
 # Golang extension connection
-cpipe.Connect("127.0.0.1", 6379)
+cpipe.Connect(HOST, PORT)
 
 # Golang extension connection with golang lib
-cpipelib.Connect("127.0.0.1", 6379)
+cpipelib.Connect(HOST, PORT)
 
 # Redispy connection
 redispy = redis.Redis()
@@ -76,11 +80,12 @@ def redispy_bench(pipe_size, hm_size):
     pipe.execute()
 
 
+writer     = pd.ExcelWriter('Redis cli benchmark.xlsx', engine='xlsxwriter')
+    
 
-def save_to_excel(data, index):
+def save_to_excel(data, index, sheet_name):
+    
     df = pd.DataFrame(data, index=index)
-    sheet_name = 'Pipeline size'
-    writer     = pd.ExcelWriter('Redis cli benchmark.xlsx', engine='xlsxwriter')
     df.to_excel(writer, sheet_name=sheet_name)
     workbook  = writer.book
     worksheet = writer.sheets[sheet_name]
@@ -99,12 +104,13 @@ def save_to_excel(data, index):
     chart.set_x_axis({'name': 'Pipeline size'})
     chart.set_y_axis({'name': 'Seconds', 'major_gridlines': {'visible': False}})
     worksheet.insert_chart('H2', chart)
-    writer.save()
 
 
 if __name__ == '__main__':
     clients = list([credis_bench, pipelayer_bench,pipelayerlib_bench, redispy_bench])
+    
     data = list()
+    
     for pipe_size in pipe_sizes:
         dic = {}
         for cli in clients:
@@ -112,4 +118,15 @@ if __name__ == '__main__':
             dic[name] = value 
         data.append(dic)
     index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
-    save_to_excel(data, index)
+    save_to_excel(data, index, 'Pipeline size')
+
+    data = list()
+    for hashmap_size in hashmap_sizes:
+        dic = {}
+        for cli in clients:
+            name, value = cli(1000, hashmap_size)
+            dic[name] = value 
+        data.append(dic)
+    index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
+    save_to_excel(data, index, 'Hashmap size')
+    writer.save()

@@ -4,7 +4,7 @@
 PyObject * Connect(PyObject *, PyObject *);
 PyObject * add_command(PyObject *, PyObject*);
 PyObject * execute(PyObject *, PyObject *);
-
+PyObject * hset(PyObject *, PyObject *);
 
 int PyArg_ParseTuple_Connection(PyObject * args, char**host, long long *port){
     return PyArg_ParseTuple(args, "sL", host, port);
@@ -26,6 +26,7 @@ static PyMethodDef CpipeMethods[] = {
     {"Connect", Connect, METH_VARARGS, ""},
     {"add_command", add_command, METH_VARARGS, ""},
     {"execute", execute, METH_VARARGS, ""},
+    {"hset", hset, METH_VARARGS, ""},
     {NULL, NULL, 0, NULL}
 };
 
