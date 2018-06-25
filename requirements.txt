@@ -1,0 +1,8 @@
+credis==1.0.8
+hiredis==0.2.0
+numpy==1.14.5
+pandas==0.23.1
+python-dateutil==2.7.3
+pytz==2018.4
+redis==2.10.6
+six==1.11.0
