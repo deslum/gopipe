@@ -4,6 +4,8 @@ package main
 // #define Py_LIMITED_API
 // #include <Python.h>
 // int PyArg_ParseTuple_String(PyObject *, char**, char**, char**, char**);
+// int PyArg_ParseTuple_Hashmap_Get_String(PyObject *, char**, char **);
+// int PyArg_ParseTuple_Hashmap_Set_String(PyObject *, char**, char **, char **);
 // int PyArg_ParseTuple_Connection(PyObject *, char**, long long *);
 // int PyArg_ParseTuple_LL(PyObject *, long long *);
 // PyObject* Py_String(char *pystring);
@@ -18,7 +20,7 @@ import (
 	"strconv"
 )
 
-const BUFFERSIZE = 1024 * 1024 *4
+const BUFFERSIZE = 1024 * 1024 * 4
 
 type Client struct {
 	sock    *net.TCPConn
@@ -68,7 +70,12 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	valueStr := C.GoString(value)
 
 	// Start
-	cli.buf.WriteString("*4\r\n$")
+	switch cmdStr {
+	case "hset":
+		cli.buf.WriteString("*4\r\n$")
+	case "hget":
+		cli.buf.WriteString("*3\r\n$")
+	}
 	// Command
 	cli.buf.WriteString(strconv.Itoa(len(cmdStr)))
 	cli.buf.WriteString("\r\n")
@@ -84,11 +91,13 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
 	cli.buf.WriteString("\r\n$")
-	// Value
-	cli.buf.WriteString(strconv.Itoa(len(valueStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(valueStr)
-	cli.buf.WriteString("\r\n")
+	if cmdStr == "hset" {
+		// Value
+		cli.buf.WriteString(strconv.Itoa(len(valueStr)))
+		cli.buf.WriteString("\r\n")
+		cli.buf.WriteString(valueStr)
+		cli.buf.WriteString("\r\n")
+	}
 
 	if cli.buf.Len() >= BUFFERSIZE {
 		cli.counter++
@@ -113,6 +122,72 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		}
 	}
 	cli.chunks = make(map[int]bytes.Buffer)
+	return C.PyLong_FromLong(0)
+}
+
+//export hget
+func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key *C.char
+	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	cli.buf.WriteString("*2\r\n$")
+	// Hashmap
+	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(hashmapStr)
+	cli.buf.WriteString("\r\n$")
+	// Key
+	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(keyStr)
+	cli.buf.WriteString("\r\n$")
+LAB:
+	_, err := cli.sock.Write(cli.buf.Bytes())
+	if err != nil {
+		goto LAB
+	}
+	cli.buf.Reset()
+
+	return C.PyLong_FromLong(0)
+}
+
+//export hset
+func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	valueStr := C.GoString(value)
+	cli.buf.WriteString("*3\r\n$")
+	// Hashmap
+	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(hashmapStr)
+	cli.buf.WriteString("\r\n$")
+	// Key
+	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(keyStr)
+	cli.buf.WriteString("\r\n$")
+	// Value
+	cli.buf.WriteString(strconv.Itoa(len(valueStr)))
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString(valueStr)
+	cli.buf.WriteString("\r\n")
+LAB:
+	_, err := cli.sock.Write(cli.buf.Bytes())
+	if err != nil {
+		goto LAB
+	}
+	cli.buf.Reset()
+
 	return C.PyLong_FromLong(0)
 }
 

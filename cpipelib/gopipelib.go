@@ -5,6 +5,8 @@ package main
 // #include <Python.h>
 // int PyArg_ParseTuple_String(PyObject *, char**, char**, char**, char**);
 // int PyArg_ParseTuple_Connection(PyObject *, char**, long long *);
+// int PyArg_ParseTuple_Hashmap_Get_String(PyObject *, char**, char **);
+// int PyArg_ParseTuple_Hashmap_Set_String(PyObject *, char**, char **, char **);
 // int PyArg_ParseTuple_LL(PyObject *, long long *);
 // PyObject* Py_String(char *pystring);
 import (
@@ -17,6 +19,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+var client *redis.Client
 var pipe redis.Pipeliner
 
 //export Connect
@@ -28,11 +31,11 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		return C.PyLong_FromLong(0)
 	}
 	ipStr := C.GoString(ip)
-	client := redis.NewClient(&redis.Options{
+	client = redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", ipStr, port),
 		Password: "", // no password set
 		DB:       0,  // use default DB
-		PoolSize: 1,
+		PoolSize: 4,
 	})
 	_, err := client.Ping().Result()
 	if err != nil {
@@ -65,6 +68,35 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	if err != nil {
 		log.Println(err)
 	}
+	return C.PyLong_FromLong(0)
+}
+
+//export hget
+func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	_ = C.GoString(value)
+	client.HGet(hashmapStr, keyStr)
+	return C.PyLong_FromLong(0)
+}
+
+//export hset
+func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	valueStr := C.GoString(value)
+	client.HSet(hashmapStr, keyStr, valueStr)
+
 	return C.PyLong_FromLong(0)
 }
 

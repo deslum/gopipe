@@ -1,1 +1,1 @@
-from .cpipelib import Connect, add_command, execute
+from .cpipelib import Connect, add_command, execute, hget, hset

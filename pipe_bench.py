@@ -42,10 +42,13 @@ def timeit(method):
 
 
 @timeit
-def credis_bench(pipe_size, hm_size):
+def credis_bench(cmd, pipe_size, hm_size):
     pipe_list = list()
     for x in range(0, hm_size):
-        pipe_list.append(("hset", "words", "word|{}".format(x), "1",))
+        if cmd == 'hset':
+            pipe_list.append((cmd, "words", "word|{}".format(x), "1",))
+        else:
+            pipe_list.append((cmd, "words", "word|{}".format(x),))
         if x % pipe_size == 0:
             r.execute_pipeline(*pipe_list)
             pipe_list.clear()
@@ -54,33 +57,42 @@ def credis_bench(pipe_size, hm_size):
 
 
 @timeit
-def pipelayer_bench(pipe_size, hm_size):
+def pipelayer_bench(cmd, pipe_size, hm_size):
     for x in range(0, hm_size):
-        cpipe.add_command("hset", "words", "word|{}".format(x), "1")
+        if cmd == 'hset':
+            cpipe.add_command(cmd, "words", "word|{}".format(x), "1")
+        else:
+            cpipe.add_command(cmd, "words", "word|{}".format(x))
         if x % pipe_size == 0:
             cpipe.execute()
     cpipe.execute()
 
 @timeit
-def pipelayerlib_bench(pipe_size, hm_size):
+def pipelayerlib_bench(cmd, pipe_size, hm_size):
     for x in range(0, hm_size):
-        cpipelib.add_command("hset", "words", "word|{}".format(x), "1")
+        if cmd == 'hset':
+            cpipelib.add_command(cmd, "words", "word|{}".format(x), "1")
+        else:
+            cpipelib.add_command(cmd, "words", "word|{}".format(x))
         if x % pipe_size == 0:
             cpipelib.execute()
     cpipelib.execute()
 
 
 @timeit
-def redispy_bench(pipe_size, hm_size):
+def redispy_bench(cmd, pipe_size, hm_size):
     pipe = redispy.pipeline(transaction=False)
     for x in range(0, hm_size):
-        pipe.hset("words", "word|{}".format(x), "1")
+        if cmd == 'hset':
+            pipe.hset("words", "word|{}".format(x), "1")
+        else:
+            pipe.hget("words", "word|{}".format(x))
         if x % pipe_size == 0:
             pipe.execute()
     pipe.execute()
 
 
-writer     = pd.ExcelWriter('Redis cli benchmark.xlsx', engine='xlsxwriter')
+writer     = pd.ExcelWriter('Redis cli pipeline benchmark.xlsx', engine='xlsxwriter')
     
 
 def save_to_excel(data, index, sheet_name):
@@ -107,26 +119,28 @@ def save_to_excel(data, index, sheet_name):
 
 
 if __name__ == '__main__':
-    clients = list([credis_bench, pipelayer_bench,pipelayerlib_bench, redispy_bench])
+    clients = list([credis_bench, pipelayer_bench, pipelayerlib_bench, redispy_bench])
     
-    data = list()
     
-    for pipe_size in pipe_sizes:
-        dic = {}
-        for cli in clients:
-            name, value = cli(pipe_size, 500000)
-            dic[name] = value 
-        data.append(dic)
-    index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
-    save_to_excel(data, index, 'Pipeline size')
+    for cmd in ['hget', 'hset']:
+        data = list()
+        for pipe_size in pipe_sizes:
+            dic = {}
+            for cli in clients:
+                name, value = cli(cmd, pipe_size, 500000)
+                dic[name] = value 
+            data.append(dic)
+        index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
+        save_to_excel(data, index, '{} Pipeline size'.format(cmd))
 
-    data = list()
-    for hashmap_size in hashmap_sizes:
-        dic = {}
-        for cli in clients:
-            name, value = cli(1000, hashmap_size)
-            dic[name] = value 
-        data.append(dic)
-    index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
-    save_to_excel(data, index, 'Hashmap size')
+        data = list()
+        for hashmap_size in hashmap_sizes:
+            dic = {}
+            for cli in clients:
+                name, value = cli(cmd, 1000, hashmap_size)
+                dic[name] = value 
+            data.append(dic)
+        index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))
+        save_to_excel(data, index, '{} Hashmap size'.format(cmd))
+
     writer.save()
