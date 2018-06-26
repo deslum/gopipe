@@ -91,7 +91,6 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
 		return C.PyLong_FromLong(0)
 	}
-
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)

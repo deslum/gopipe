@@ -52,17 +52,17 @@ def credis_single_bench(cmd, hm_size):
 def pipelayer_single_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipe.hset("words", "word|{}".format(x), "1")
+            cpipe.hset("swords0", "word|{}".format(x), "1")
         else:
-            cpipe.hget("words", "word|{}".format(x))
+            cpipe.hget("hwords0", "word|{}".format(x))
 
 @timeit
 def pipelayerlib_single_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipelib.hset("words", "word|{}".format(x), "1")
+            cpipelib.hset("swords1", "word|{}".format(x), "1")
         else:
-            cpipelib.hget("words", "word|{}".format(x))
+            cpipelib.hget("gwords1", "word|{}".format(x))
 
 @timeit
 def redispy_single_bench(cmd, hm_size):
@@ -99,7 +99,11 @@ def save_to_excel(data, index, sheet_name):
 
 if __name__ == '__main__':
     
-    clients = list([credis_single_bench, pipelayer_single_bench, pipelayerlib_single_bench, redispy_single_bench])
+    clients = list([credis_single_bench, 
+                    pipelayer_single_bench, 
+                    pipelayerlib_single_bench, 
+                    redispy_single_bench
+                   ])
     for cmd in ['hget', 'hset']:
         data = list()
         for hashmap_size in hashmap_sizes:

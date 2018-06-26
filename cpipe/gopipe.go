@@ -120,6 +120,13 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		if err != nil {
 			goto LAB
 		}
+		reply := make([]byte, 1024)
+
+		_, err = cli.sock.Read(reply)
+		if err != nil {
+			println("Write to server failed:", err.Error())
+		}
+		_ = string(reply)
 	}
 	cli.chunks = make(map[int]bytes.Buffer)
 	return C.PyLong_FromLong(0)
@@ -134,7 +141,12 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
-	cli.buf.WriteString("*2\r\n$")
+	cli.buf.WriteString("*3\r\n$")
+	// Command
+	cli.buf.WriteString("4")
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString("hget")
+	cli.buf.WriteString("\r\n$")
 	// Hashmap
 	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
 	cli.buf.WriteString("\r\n")
@@ -144,12 +156,22 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
-	cli.buf.WriteString("\r\n$")
+	cli.buf.WriteString("\r\n")
 LAB:
 	_, err := cli.sock.Write(cli.buf.Bytes())
 	if err != nil {
+		log.Println(err)
 		goto LAB
 	}
+
+	reply := make([]byte, BUFFERSIZE)
+
+	_, err = cli.sock.Read(reply)
+	if err != nil {
+		println("Write to server failed:", err.Error())
+	}
+	_ = string(reply)
+
 	cli.buf.Reset()
 
 	return C.PyLong_FromLong(0)
@@ -165,17 +187,27 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-	cli.buf.WriteString("*3\r\n$")
+
+	cli.buf.WriteString("*4\r\n$")
+
+	// Command
+	cli.buf.WriteString("4")
+	cli.buf.WriteString("\r\n")
+	cli.buf.WriteString("hset")
+	cli.buf.WriteString("\r\n$")
+
 	// Hashmap
 	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(hashmapStr)
 	cli.buf.WriteString("\r\n$")
+
 	// Key
 	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
 	cli.buf.WriteString("\r\n$")
+
 	// Value
 	cli.buf.WriteString(strconv.Itoa(len(valueStr)))
 	cli.buf.WriteString("\r\n")
@@ -184,8 +216,17 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 LAB:
 	_, err := cli.sock.Write(cli.buf.Bytes())
 	if err != nil {
+		log.Panicln(err)
 		goto LAB
 	}
+
+	reply := make([]byte, BUFFERSIZE)
+
+	_, err = cli.sock.Read(reply)
+	if err != nil {
+		println("Write to server failed:", err.Error())
+	}
+	_ = string(reply)
 	cli.buf.Reset()
 
 	return C.PyLong_FromLong(0)
