@@ -15,6 +15,7 @@ import (
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strconv"
@@ -50,6 +51,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		log.Println(err)
 		return C.PyLong_FromLong(0)
 	}
+
 	cli = &Client{
 		sock:   sock,
 		chunks: make(map[int]bytes.Buffer),
@@ -90,9 +92,10 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
-	cli.buf.WriteString("\r\n$")
+	cli.buf.WriteString("\r\n")
 	if cmdStr == "hset" {
 		// Value
+		cli.buf.WriteString("$")
 		cli.buf.WriteString(strconv.Itoa(len(valueStr)))
 		cli.buf.WriteString("\r\n")
 		cli.buf.WriteString(valueStr)
@@ -118,16 +121,12 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	LAB:
 		_, err := cli.sock.Write(chunk.Bytes())
 		if err != nil {
+			log.Println(err)
 			goto LAB
 		}
-		reply := make([]byte, 1024)
-
-		_, err = cli.sock.Read(reply)
-		if err != nil {
-			println("Write to server failed:", err.Error())
-		}
-		_ = string(reply)
 	}
+	_ = readBuffer(cli.sock)
+
 	cli.chunks = make(map[int]bytes.Buffer)
 	return C.PyLong_FromLong(0)
 }
@@ -157,20 +156,14 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
 	cli.buf.WriteString("\r\n")
-LAB:
+
 	_, err := cli.sock.Write(cli.buf.Bytes())
 	if err != nil {
 		log.Println(err)
-		goto LAB
+		C.PyLong_FromLong(0)
 	}
 
-	reply := make([]byte, BUFFERSIZE)
-
-	_, err = cli.sock.Read(reply)
-	if err != nil {
-		println("Write to server failed:", err.Error())
-	}
-	_ = string(reply)
+	_ = readBuffer(cli.sock)
 
 	cli.buf.Reset()
 
@@ -213,23 +206,31 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(valueStr)
 	cli.buf.WriteString("\r\n")
-LAB:
+
 	_, err := cli.sock.Write(cli.buf.Bytes())
 	if err != nil {
 		log.Panicln(err)
-		goto LAB
 	}
 
-	reply := make([]byte, BUFFERSIZE)
-
-	_, err = cli.sock.Read(reply)
-	if err != nil {
-		println("Write to server failed:", err.Error())
-	}
-	_ = string(reply)
+	_ = readBuffer(cli.sock)
 	cli.buf.Reset()
 
 	return C.PyLong_FromLong(0)
+}
+
+func readBuffer(sock *net.TCPConn) (buffer []string) {
+	var reply = make([]byte, 4096)
+	for {
+		_, err := cli.sock.Read(reply)
+		if err != io.EOF {
+			break
+		}
+		if err != nil {
+			log.Println("Write to server failed:", err.Error())
+		}
+		buffer = append(buffer, string(reply))
+	}
+	return
 }
 
 func main() {}

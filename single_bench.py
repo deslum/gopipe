@@ -8,7 +8,7 @@ from time import time
 import pandas as pd
 
 retry_attempts = 1
-hashmap_sizes = [1000, 5000, 10000, 50000, 100000]
+hashmap_sizes = [50000]
 
 HOST = '127.0.0.1'
 PORT = 6379

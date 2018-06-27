@@ -8,8 +8,8 @@ from time import time
 import pandas as pd
 
 retry_attempts = 1
-pipe_sizes = [100, 500, 1000, 5000, 10000, 50000, 100000]
-hashmap_sizes = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+pipe_sizes = [100, 500, 1000]
+hashmap_sizes = [1000, 5000, 10000]
 
 HOST = '127.0.0.1'
 PORT = 6379
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         for hashmap_size in hashmap_sizes:
             dic = {}
             for cli in clients:
-                name, value = cli(cmd, 1000, hashmap_size)
+                name, value = cli(cmd, 100, hashmap_size)
                 dic[name] = value 
             data.append(dic)
         index = list(map(lambda pipe_size: str(pipe_size), pipe_sizes))

@@ -37,6 +37,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		DB:       0,  // use default DB
 		PoolSize: 4,
 	})
+
 	_, err := client.Ping().Result()
 	if err != nil {
 		log.Panicln(err)
@@ -81,7 +82,10 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	_ = C.GoString(value)
-	client.HGet(hashmapStr, keyStr)
+	result := client.HGet(hashmapStr, keyStr)
+	if result.Err() != nil {
+		return C.PyLong_FromLong(0)
+	}
 	return C.PyLong_FromLong(0)
 }
 
@@ -94,8 +98,10 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-	client.HSet(hashmapStr, keyStr, valueStr)
-
+	result := client.HSet(hashmapStr, keyStr, valueStr)
+	if result.Err() != nil {
+		return C.PyLong_FromLong(0)
+	}
 	return C.PyLong_FromLong(0)
 }
 
