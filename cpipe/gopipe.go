@@ -24,44 +24,60 @@ import (
 const BUFFERSIZE = 1024 * 1024 * 4
 
 type Client struct {
-	sock    *net.TCPConn
-	buf     bytes.Buffer
-	counter int
-	chunks  map[int]bytes.Buffer
+	sock     []*net.TCPConn
+	buf      bytes.Buffer
+	counter  int
+	execChan chan []string
+	chunks   map[int]bytes.Buffer
 }
 
 var cli *Client
 
 //export Connect
 func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
-
 	var ip *C.char
 	var port C.longlong
+
 	if C.PyArg_ParseTuple_Connection(args, &ip, &port) == 0 {
 		log.Println(0)
 		return C.PyLong_FromLong(0)
 	}
+
 	addr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", C.GoString(ip), int(port)))
 	if err != nil {
 		log.Println(err)
 		return C.PyLong_FromLong(0)
 	}
-	sock, err := net.DialTCP("tcp", nil, addr)
-	if err != nil {
-		log.Println(err)
-		return C.PyLong_FromLong(0)
+
+	var socks []*net.TCPConn
+	for i := 0; i < 1; i++ {
+		sock, err := net.DialTCP("tcp", nil, addr)
+		if err != nil {
+			log.Println(err)
+			return C.PyLong_FromLong(0)
+		}
+
+		sock.SetNoDelay(true)
+		socks = append(socks, sock)
 	}
 
 	cli = &Client{
-		sock:   sock,
-		chunks: make(map[int]bytes.Buffer),
+		sock:     socks,
+		chunks:   make(map[int]bytes.Buffer),
+		execChan: make(chan []string, 10),
 	}
+
+	for i := 0; i < 1; i++ {
+		go exec(i)
+	}
+
 	return C.PyLong_FromLong(0)
 }
 
 //export add_command
 func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	var cmd, hashmap, key, value *C.char
+
 	if C.PyArg_ParseTuple_String(args, &cmd, &hashmap, &key, &value) == 0 {
 		return C.PyLong_FromLong(0)
 	}
@@ -93,6 +109,7 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	cli.buf.WriteString("\r\n")
 	cli.buf.WriteString(keyStr)
 	cli.buf.WriteString("\r\n")
+
 	if cmdStr == "hset" {
 		// Value
 		cli.buf.WriteString("$")
@@ -117,15 +134,17 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		cli.chunks[cli.counter] = cli.buf
 		cli.buf.Reset()
 	}
+
 	for _, chunk := range cli.chunks {
 	LAB:
-		_, err := cli.sock.Write(chunk.Bytes())
+		_, err := cli.sock[0].Write(chunk.Bytes())
 		if err != nil {
 			log.Println(err)
 			goto LAB
 		}
 	}
-	_ = readBuffer(cli.sock)
+
+	_ = readBuffer(cli.sock[0])
 
 	cli.chunks = make(map[int]bytes.Buffer)
 	return C.PyLong_FromLong(0)
@@ -133,6 +152,7 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 //export hget
 func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
+
 	var hashmap, key *C.char
 	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
 		return C.PyLong_FromLong(0)
@@ -140,34 +160,43 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
-	cli.buf.WriteString("*3\r\n$")
-	// Command
-	cli.buf.WriteString("4")
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString("hget")
-	cli.buf.WriteString("\r\n$")
-	// Hashmap
-	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(hashmapStr)
-	cli.buf.WriteString("\r\n$")
-	// Key
-	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(keyStr)
-	cli.buf.WriteString("\r\n")
 
-	_, err := cli.sock.Write(cli.buf.Bytes())
-	if err != nil {
-		log.Println(err)
-		C.PyLong_FromLong(0)
-	}
-
-	_ = readBuffer(cli.sock)
-
-	cli.buf.Reset()
+	cli.execChan <- []string{"hget", hashmapStr, keyStr}
 
 	return C.PyLong_FromLong(0)
+}
+
+func exec(bufNum int) {
+	for {
+		select {
+		case ex, ok := <-cli.execChan:
+			if !ok {
+				break
+			}
+			var buf bytes.Buffer
+
+			buf.WriteString("*")
+			buf.WriteString(strconv.Itoa(len(ex)))
+			buf.WriteString("\r\n")
+
+			for _, cmd := range ex {
+
+				buf.WriteString("$")
+				buf.WriteString(strconv.Itoa(len(cmd)))
+				buf.WriteString("\r\n")
+				buf.WriteString(cmd)
+				buf.WriteString("\r\n")
+			}
+			_, err := cli.sock[bufNum].Write(buf.Bytes())
+			if err != nil {
+				log.Println(err)
+			}
+			_ = readBuffer(cli.sock[bufNum])
+			buf.Reset()
+		default:
+			continue
+		}
+	}
 }
 
 //export hset
@@ -180,40 +209,7 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-
-	cli.buf.WriteString("*4\r\n$")
-
-	// Command
-	cli.buf.WriteString("4")
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString("hset")
-	cli.buf.WriteString("\r\n$")
-
-	// Hashmap
-	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(hashmapStr)
-	cli.buf.WriteString("\r\n$")
-
-	// Key
-	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(keyStr)
-	cli.buf.WriteString("\r\n$")
-
-	// Value
-	cli.buf.WriteString(strconv.Itoa(len(valueStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(valueStr)
-	cli.buf.WriteString("\r\n")
-
-	_, err := cli.sock.Write(cli.buf.Bytes())
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	_ = readBuffer(cli.sock)
-	cli.buf.Reset()
+	cli.execChan <- []string{"hset", hashmapStr, keyStr, valueStr}
 
 	return C.PyLong_FromLong(0)
 }
@@ -221,12 +217,12 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 func readBuffer(sock *net.TCPConn) (buffer []string) {
 	var reply = make([]byte, 4096)
 	for {
-		_, err := cli.sock.Read(reply)
-		if err != io.EOF {
-			break
-		}
+		_, err := sock.Read(reply)
 		if err != nil {
 			log.Println("Write to server failed:", err.Error())
+		}
+		if err != io.EOF {
+			break
 		}
 		buffer = append(buffer, string(reply))
 	}
