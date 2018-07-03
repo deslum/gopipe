@@ -50,7 +50,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	}
 
 	var socks []*net.TCPConn
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		sock, err := net.DialTCP("tcp", nil, addr)
 		if err != nil {
 			log.Println(err)
@@ -67,7 +67,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		execChan: make(chan []string, 10),
 	}
 
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		go exec(i)
 	}
 
@@ -150,8 +150,65 @@ func execute(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	return C.PyLong_FromLong(0)
 }
 
+func exec(bufNum int) {
+	for {
+		select {
+		case ex, ok := <-cli.execChan:
+			if !ok {
+				break
+			}
+
+			buf := getRawCommand(ex)
+			_, err := cli.sock[bufNum].Write(buf.Bytes())
+			if err != nil {
+				log.Println(err)
+			}
+			_ = readBuffer(cli.sock[bufNum])
+			buf.Reset()
+		default:
+			continue
+		}
+	}
+}
+
 //export hget
 func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
+
+	var hashmap, key *C.char
+	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	var ex = []string{"hget", hashmapStr, keyStr}
+	buf := getRawCommand(ex)
+	_, err := cli.sock[0].Write(buf.Bytes())
+	if err != nil {
+		log.Println(err)
+	}
+	_ = readBuffer(cli.sock[0])
+	buf.Reset()
+	return C.PyLong_FromLong(0)
+}
+
+//export hset
+func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	valueStr := C.GoString(value)
+	cli.execChan <- []string{"hset", hashmapStr, keyStr, valueStr}
+
+	return C.PyLong_FromLong(0)
+}
+
+//export phget
+func phget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 	var hashmap, key *C.char
 	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
@@ -166,41 +223,8 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	return C.PyLong_FromLong(0)
 }
 
-func exec(bufNum int) {
-	for {
-		select {
-		case ex, ok := <-cli.execChan:
-			if !ok {
-				break
-			}
-			var buf bytes.Buffer
-
-			buf.WriteString("*")
-			buf.WriteString(strconv.Itoa(len(ex)))
-			buf.WriteString("\r\n")
-
-			for _, cmd := range ex {
-
-				buf.WriteString("$")
-				buf.WriteString(strconv.Itoa(len(cmd)))
-				buf.WriteString("\r\n")
-				buf.WriteString(cmd)
-				buf.WriteString("\r\n")
-			}
-			_, err := cli.sock[bufNum].Write(buf.Bytes())
-			if err != nil {
-				log.Println(err)
-			}
-			_ = readBuffer(cli.sock[bufNum])
-			buf.Reset()
-		default:
-			continue
-		}
-	}
-}
-
-//export hset
-func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
+//export phset
+func phset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	var hashmap, key, value *C.char
 	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
 		return C.PyLong_FromLong(0)
@@ -224,8 +248,25 @@ func readBuffer(sock *net.TCPConn) (buffer []string) {
 		if err != io.EOF {
 			break
 		}
+
 		buffer = append(buffer, string(reply))
 	}
+	return
+}
+
+func getRawCommand(ex []string) (buf bytes.Buffer) {
+	buf.WriteString("*")
+	buf.WriteString(strconv.Itoa(len(ex)))
+	buf.WriteString("\r\n")
+
+	for _, cmd := range ex {
+		buf.WriteString("$")
+		buf.WriteString(strconv.Itoa(len(cmd)))
+		buf.WriteString("\r\n")
+		buf.WriteString(cmd)
+		buf.WriteString("\r\n")
+	}
+
 	return
 }
 

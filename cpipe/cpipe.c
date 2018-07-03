@@ -6,6 +6,8 @@ PyObject * add_command(PyObject *, PyObject*);
 PyObject * execute(PyObject *, PyObject *);
 PyObject * hget(PyObject *, PyObject *);
 PyObject * hset(PyObject *, PyObject *);
+PyObject * phget(PyObject *, PyObject *);
+PyObject * phset(PyObject *, PyObject *);
 
 int PyArg_ParseTuple_Connection(PyObject * args, char**host, long long *port){
     return PyArg_ParseTuple(args, "sL", host, port);
@@ -43,6 +45,8 @@ static PyMethodDef CpipeMethods[] = {
     {"execute", execute, METH_VARARGS, ""},
     {"hget", hget, METH_VARARGS, ""},
     {"hset", hset, METH_VARARGS, ""},
+    {"phget", phget, METH_VARARGS, ""},
+    {"phset", phset, METH_VARARGS, ""},
     {NULL, NULL, 0, NULL}
 };
 

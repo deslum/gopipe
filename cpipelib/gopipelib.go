@@ -21,6 +21,7 @@ import (
 
 var client *redis.Client
 var pipe redis.Pipeliner
+var execChan chan []string
 
 //export Connect
 func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
@@ -35,8 +36,10 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		Addr:     fmt.Sprintf("%s:%d", ipStr, port),
 		Password: "", // no password set
 		DB:       0,  // use default DB
-		PoolSize: 4,
+		PoolSize: 10,
 	})
+
+	execChan = make(chan []string, 10)
 
 	_, err := client.Ping().Result()
 	if err != nil {
@@ -91,6 +94,58 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 //export hset
 func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	valueStr := C.GoString(value)
+	result := client.HSet(hashmapStr, keyStr, valueStr)
+	if result.Err() != nil {
+		return C.PyLong_FromLong(0)
+	}
+	return C.PyLong_FromLong(0)
+}
+
+func exec(bufNum int) {
+	for {
+		select {
+		case ex, ok := <-execChan:
+			if !ok {
+				break
+			}
+			switch len(ex) {
+			case 2:
+				client.HGet(ex[0], ex[1])
+			case 3:
+				client.HSet(ex[0], ex[1], ex[2])
+			}
+		default:
+			continue
+		}
+	}
+}
+
+//export phget
+func phget(self *C.PyObject, args *C.PyObject) *C.PyObject {
+	var hashmap, key, value *C.char
+	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
+		return C.PyLong_FromLong(0)
+	}
+
+	hashmapStr := C.GoString(hashmap)
+	keyStr := C.GoString(key)
+	_ = C.GoString(value)
+	result := client.HGet(hashmapStr, keyStr)
+	if result.Err() != nil {
+		return C.PyLong_FromLong(0)
+	}
+	return C.PyLong_FromLong(0)
+}
+
+//export phset
+func phset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	var hashmap, key, value *C.char
 	if C.PyArg_ParseTuple_Hashmap_Set_String(args, &hashmap, &key, &value) == 0 {
 		return C.PyLong_FromLong(0)

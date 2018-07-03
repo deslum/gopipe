@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 import cpipe
 import cpipelib
-import credis
+from credis import Connection
+from credis.geventpool import ResourcePool
 import time
 import redis
 from time import time
@@ -14,7 +15,7 @@ HOST = '127.0.0.1'
 PORT = 6379
 
 # Credis connection
-r = credis.Connection()
+pool = ResourcePool(10, Connection, host=HOST, port=PORT)
 
 # Golang extension connection
 cpipe.Connect(HOST, PORT)
@@ -23,8 +24,8 @@ cpipe.Connect(HOST, PORT)
 cpipelib.Connect(HOST, PORT)
 
 # Redispy connection
-redispy = redis.Redis()
-
+pool = redis.ConnectionPool(host=HOST, port=PORT)
+redispy = redis.Redis(connection_pool=pool)
 
 def timeit(method):
     def timed(*args, **kw):
@@ -41,15 +42,16 @@ def timeit(method):
 
 
 @timeit
-def credis_single_bench(cmd, hm_size):
+def credis_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
-        if cmd == 'hset':
-            r.execute(cmd, "words", "word|{}".format(x), "1")
-        else:
-            r.execute(cmd, "words", "word|{}".format(x))
+        with pool.ctx() as conn:
+            if cmd == 'hset':
+                conn.execute(cmd, "words", "word|{}".format(x), "1")
+            else:
+                conn.execute(cmd, "words", "word|{}".format(x))
 
 @timeit
-def pipelayer_single_bench(cmd, hm_size):
+def pipelayer_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
             cpipe.phset("swords0", "word|{}".format(x), "1")
@@ -57,7 +59,7 @@ def pipelayer_single_bench(cmd, hm_size):
             cpipe.phget("hwords0", "word|{}".format(x))
 
 @timeit
-def pipelayerlib_single_bench(cmd, hm_size):
+def pipelayerlib_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
             cpipelib.hset("swords1", "word|{}".format(x), "1")
@@ -65,7 +67,7 @@ def pipelayerlib_single_bench(cmd, hm_size):
             cpipelib.hget("gwords1", "word|{}".format(x))
 
 @timeit
-def redispy_single_bench(cmd, hm_size):
+def redispy_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
             redispy.hset("words", "word|{}".format(x), "1")
@@ -99,10 +101,10 @@ def save_to_excel(data, index, sheet_name):
 
 if __name__ == '__main__':
     
-    clients = list([credis_single_bench, 
-                    pipelayer_single_bench, 
-                    pipelayerlib_single_bench, 
-                    redispy_single_bench
+    clients = list([credis_pooling_bench, 
+                    pipelayer_pooling_bench, 
+                    pipelayerlib_pooling_bench, 
+                    redispy_pooling_bench
                    ])
     for cmd in ['hget', 'hset']:
         data = list()

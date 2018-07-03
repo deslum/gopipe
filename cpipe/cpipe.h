@@ -1,23 +1,11 @@
 /* Created by "go tool cgo" - DO NOT EDIT. */
 
-/* package _/home/yuri/src/cgo/cpipe */
-
-
-#line 1 "cgo-builtin-prolog"
-
-#include <stddef.h> /* for ptrdiff_t below */
-
-#ifndef GO_CGO_EXPORT_PROLOGUE_H
-#define GO_CGO_EXPORT_PROLOGUE_H
-
-typedef struct { const char *p; ptrdiff_t n; } _GoString_;
-
-#endif
+/* package cgo/cpipe */
 
 /* Start of preamble from import "C" comments.  */
 
 
-#line 3 "/home/yuri/src/cgo/cpipe/gopipe.go"
+#line 3 "/home/deslum/src/cgo/cpipe/gopipe.go"
 
  #define Py_LIMITED_API
  #include <Python.h>
@@ -62,7 +50,7 @@ typedef double _Complex GoComplex128;
 */
 typedef char _check_for_64_bit_pointer_matching_GoInt[sizeof(void*)==64/8 ? 1:-1];
 
-typedef _GoString_ GoString;
+typedef struct { const char *p; GoInt n; } GoString;
 typedef void *GoMap;
 typedef void *GoChan;
 typedef struct { void *t; void *v; } GoInterface;
@@ -86,6 +74,10 @@ extern PyObject* execute(PyObject* p0, PyObject* p1);
 extern PyObject* hget(PyObject* p0, PyObject* p1);
 
 extern PyObject* hset(PyObject* p0, PyObject* p1);
+
+extern PyObject* phget(PyObject* p0, PyObject* p1);
+
+extern PyObject* phset(PyObject* p0, PyObject* p1);
 
 #ifdef __cplusplus
 }
