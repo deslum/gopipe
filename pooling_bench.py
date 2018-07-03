@@ -15,7 +15,7 @@ HOST = '127.0.0.1'
 PORT = 6379
 
 # Credis connection
-pool = ResourcePool(10, Connection, host=HOST, port=PORT)
+credis_pool = ResourcePool(10, Connection, host=HOST, port=PORT)
 
 # Golang extension connection
 cpipe.Connect(HOST, PORT)
@@ -36,7 +36,7 @@ def timeit(method):
             method(*args, **kw)
             sum_time += time() - ts
         pipe_size = str(args[0])
-        r.execute("flushdb")
+        credis_pool.execute("flushdb")
         return method.__name__, sum_time / retry_attempts
     return timed
 
@@ -44,7 +44,7 @@ def timeit(method):
 @timeit
 def credis_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
-        with pool.ctx() as conn:
+        with credis_pool.ctx() as conn:
             if cmd == 'hset':
                 conn.execute(cmd, "words", "word|{}".format(x), "1")
             else:
@@ -54,27 +54,19 @@ def credis_pooling_bench(cmd, hm_size):
 def pipelayer_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipe.phset("swords0", "word|{}".format(x), "1")
+            cpipe.phset("words", "word|{}".format(x), "1")
         else:
-            cpipe.phget("hwords0", "word|{}".format(x))
+            cpipe.phget("words", "word|{}".format(x))
 
 @timeit
 def pipelayerlib_pooling_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipelib.hset("swords1", "word|{}".format(x), "1")
+            cpipelib.phset("words", "word|{}".format(x), "1")
         else:
-            cpipelib.hget("gwords1", "word|{}".format(x))
+            cpipelib.phget("words", "word|{}".format(x))
 
-@timeit
-def redispy_pooling_bench(cmd, hm_size):
-    for x in range(0, hm_size):
-        if cmd == 'hset':
-            redispy.hset("words", "word|{}".format(x), "1")
-        else:
-            redispy.hget("words", "word|{}".format(x))
-
-writer     = pd.ExcelWriter('Redis cli single benchmark.xlsx', engine='xlsxwriter')
+writer = pd.ExcelWriter('Redis cli pooling benchmark.xlsx', engine='xlsxwriter')
 
 def save_to_excel(data, index, sheet_name):
     
@@ -104,7 +96,6 @@ if __name__ == '__main__':
     clients = list([credis_pooling_bench, 
                     pipelayer_pooling_bench, 
                     pipelayerlib_pooling_bench, 
-                    redispy_pooling_bench
                    ])
     for cmd in ['hget', 'hset']:
         data = list()

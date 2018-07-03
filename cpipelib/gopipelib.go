@@ -46,7 +46,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		log.Panicln(err)
 		return C.PyLong_FromLong(0)
 	}
-
+	go exec()
 	pipe = client.Pipeline()
 	return C.PyLong_FromLong(0)
 }
@@ -108,7 +108,7 @@ func hset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	return C.PyLong_FromLong(0)
 }
 
-func exec(bufNum int) {
+func exec() {
 	for {
 		select {
 		case ex, ok := <-execChan:
@@ -129,18 +129,14 @@ func exec(bufNum int) {
 
 //export phget
 func phget(self *C.PyObject, args *C.PyObject) *C.PyObject {
-	var hashmap, key, value *C.char
+	var hashmap, key *C.char
 	if C.PyArg_ParseTuple_Hashmap_Get_String(args, &hashmap, &key) == 0 {
 		return C.PyLong_FromLong(0)
 	}
 
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
-	_ = C.GoString(value)
-	result := client.HGet(hashmapStr, keyStr)
-	if result.Err() != nil {
-		return C.PyLong_FromLong(0)
-	}
+	execChan <- []string{hashmapStr, keyStr}
 	return C.PyLong_FromLong(0)
 }
 
@@ -153,10 +149,7 @@ func phset(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
-	result := client.HSet(hashmapStr, keyStr, valueStr)
-	if result.Err() != nil {
-		return C.PyLong_FromLong(0)
-	}
+	execChan <- []string{hashmapStr, keyStr, valueStr}
 	return C.PyLong_FromLong(0)
 }
 

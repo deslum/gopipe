@@ -49,7 +49,11 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		return C.PyLong_FromLong(0)
 	}
 
-	var socks []*net.TCPConn
+	cli = &Client{
+		chunks:   make(map[int]bytes.Buffer),
+		execChan: make(chan []string, 10),
+	}
+
 	for i := 0; i < 10; i++ {
 		sock, err := net.DialTCP("tcp", nil, addr)
 		if err != nil {
@@ -57,17 +61,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 			return C.PyLong_FromLong(0)
 		}
 
-		sock.SetNoDelay(true)
-		socks = append(socks, sock)
-	}
-
-	cli = &Client{
-		sock:     socks,
-		chunks:   make(map[int]bytes.Buffer),
-		execChan: make(chan []string, 10),
-	}
-
-	for i := 0; i < 10; i++ {
+		cli.sock = append(cli.sock, sock)
 		go exec(i)
 	}
 
@@ -87,37 +81,8 @@ func add_command(self *C.PyObject, args *C.PyObject) *C.PyObject {
 	keyStr := C.GoString(key)
 	valueStr := C.GoString(value)
 
-	// Start
-	switch cmdStr {
-	case "hset":
-		cli.buf.WriteString("*4\r\n$")
-	case "hget":
-		cli.buf.WriteString("*3\r\n$")
-	}
-	// Command
-	cli.buf.WriteString(strconv.Itoa(len(cmdStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(cmdStr)
-	cli.buf.WriteString("\r\n$")
-	// Hashmap
-	cli.buf.WriteString(strconv.Itoa(len(hashmapStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(hashmapStr)
-	cli.buf.WriteString("\r\n$")
-	// Key
-	cli.buf.WriteString(strconv.Itoa(len(keyStr)))
-	cli.buf.WriteString("\r\n")
-	cli.buf.WriteString(keyStr)
-	cli.buf.WriteString("\r\n")
-
-	if cmdStr == "hset" {
-		// Value
-		cli.buf.WriteString("$")
-		cli.buf.WriteString(strconv.Itoa(len(valueStr)))
-		cli.buf.WriteString("\r\n")
-		cli.buf.WriteString(valueStr)
-		cli.buf.WriteString("\r\n")
-	}
+	buf := getRawCommand([]string{cmdStr, hashmapStr, keyStr, valueStr})
+	cli.buf.Write(buf.Bytes())
 
 	if cli.buf.Len() >= BUFFERSIZE {
 		cli.counter++
@@ -181,8 +146,7 @@ func hget(self *C.PyObject, args *C.PyObject) *C.PyObject {
 
 	hashmapStr := C.GoString(hashmap)
 	keyStr := C.GoString(key)
-	var ex = []string{"hget", hashmapStr, keyStr}
-	buf := getRawCommand(ex)
+	buf := getRawCommand([]string{"hget", hashmapStr, keyStr})
 	_, err := cli.sock[0].Write(buf.Bytes())
 	if err != nil {
 		log.Println(err)
