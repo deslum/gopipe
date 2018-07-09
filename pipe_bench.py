@@ -92,8 +92,7 @@ def redispy_bench(cmd, pipe_size, hm_size):
     pipe.execute()
 
 
-writer     = pd.ExcelWriter('Redis cli pipeline benchmark.xlsx', engine='xlsxwriter')
-    
+writer = pd.ExcelWriter('Redis cli pipeline benchmark.xlsx', engine='xlsxwriter')
 
 def save_to_excel(data, index, sheet_name):
     
@@ -120,8 +119,6 @@ def save_to_excel(data, index, sheet_name):
 
 if __name__ == '__main__':
     clients = list([credis_bench, pipelayer_bench, pipelayerlib_bench, redispy_bench])
-    
-    
     for cmd in ['hget', 'hset']:
         data = list()
         for pipe_size in pipe_sizes:

@@ -86,8 +86,8 @@ def save_to_excel(data, index, sheet_name):
     for col_num in range(1, len(data[0]) + 1):
         chart.add_series({
             'name':       [sheet_name, 0, col_num],
-            'categories': [sheet_name, 1, 0, 5, 0],
-            'values':     [sheet_name, 1, col_num, 5, col_num],
+            'categories': [sheet_name, 1, 0, 1, 0],
+            'values':     [sheet_name, 1, col_num, 1, col_num],
             'fill':       {'color':  colors[col_num - 1]},
             'overlap':    -10,
         })
