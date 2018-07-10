@@ -112,7 +112,7 @@ if __name__ == '__main__':
                 name, value = cli(cmd, hashmap_size)
                 dic[name] = value 
             data.append(dic)
-        index = list(map(lambda hashmap_size: str(hashmap_size), hashmap_sizes))
+        index = list(map(lambda hashmap_size: str(hashmap_size), [1]))
         save_to_excel(data, index, cmd)
 
     writer.save()
