@@ -8,8 +8,8 @@ from time import time
 import pandas as pd
 
 retry_attempts = 1
-pipe_sizes = [100, 500, 1000]
-hashmap_sizes = [1000, 5000, 10000]
+pipe_sizes = [100, 500, 1000, 5000, 10000, 50000, 100000]
+hashmap_sizes = [1000, 5000, 10000, 25000, 50000, 75000, 100000]
 
 HOST = '127.0.0.1'
 PORT = 6379
@@ -106,8 +106,8 @@ def save_to_excel(data, index, sheet_name):
     for col_num in range(1, len(data[0]) + 1):
         chart.add_series({
             'name':       [sheet_name, 0, col_num],
-            'categories': [sheet_name, 1, 0, 3, 0],
-            'values':     [sheet_name, 1, col_num, 3, col_num],
+            'categories': [sheet_name, 1, 0, 7, 0],
+            'values':     [sheet_name, 1, col_num, 7, col_num],
             'fill':       {'color':  colors[col_num - 1]},
             'overlap':    -10,
         })

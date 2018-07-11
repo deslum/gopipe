@@ -1,6 +1,6 @@
 /* Created by "go tool cgo" - DO NOT EDIT. */
 
-/* package cgo/cpipe */
+/* package _/home/deslum/src/cgo/cpipe */
 
 /* Start of preamble from import "C" comments.  */
 

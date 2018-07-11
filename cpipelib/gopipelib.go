@@ -46,7 +46,7 @@ func Connect(self *C.PyObject, args *C.PyObject) *C.PyObject {
 		log.Panicln(err)
 		return C.PyLong_FromLong(0)
 	}
-	go exec()
+	// go exec()
 	pipe = client.Pipeline()
 	return C.PyLong_FromLong(0)
 }

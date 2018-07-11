@@ -8,7 +8,7 @@ from time import time
 import pandas as pd
 
 retry_attempts = 1
-hashmap_sizes = [50000]
+hashmap_sizes = [50000, 100000, 250000]
 
 HOST = '127.0.0.1'
 PORT = 6379
@@ -52,17 +52,17 @@ def credis_single_bench(cmd, hm_size):
 def pipelayer_single_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipe.phset("swords0", "word|{}".format(x), "1")
+            cpipe.phset("words", "word|{}".format(x), "1")
         else:
-            cpipe.phget("hwords0", "word|{}".format(x))
+            cpipe.phget("words", "word|{}".format(x))
 
 @timeit
 def pipelayerlib_single_bench(cmd, hm_size):
     for x in range(0, hm_size):
         if cmd == 'hset':
-            cpipelib.hset("swords1", "word|{}".format(x), "1")
+            cpipelib.hset("words", "word|{}".format(x), "1")
         else:
-            cpipelib.hget("gwords1", "word|{}".format(x))
+            cpipelib.hget("words", "word|{}".format(x))
 
 @timeit
 def redispy_single_bench(cmd, hm_size):
@@ -86,13 +86,13 @@ def save_to_excel(data, index, sheet_name):
     for col_num in range(1, len(data[0]) + 1):
         chart.add_series({
             'name':       [sheet_name, 0, col_num],
-            'categories': [sheet_name, 1, 0, 1, 0],
-            'values':     [sheet_name, 1, col_num, 1, col_num],
+            'categories': [sheet_name, 1, 0, 3, 0],
+            'values':     [sheet_name, 1, col_num, 3, col_num],
             'fill':       {'color':  colors[col_num - 1]},
             'overlap':    -10,
         })
 
-    chart.set_x_axis({'name': 'Pipeline size'})
+    chart.set_x_axis({'name': 'hashmap size'})
     chart.set_y_axis({'name': 'Seconds', 'major_gridlines': {'visible': False}})
     worksheet.insert_chart('H2', chart)
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
                 name, value = cli(cmd, hashmap_size)
                 dic[name] = value 
             data.append(dic)
-        index = list(map(lambda hashmap_size: str(hashmap_size), [1]))
+        index = list(map(lambda hashmap_size: str(hashmap_size), hashmap_sizes))
         save_to_excel(data, index, cmd)
 
     writer.save()
