@@ -116,3 +116,10 @@ if __name__ == '__main__':
         save_to_excel(data, index, cmd)
 
     writer.save()
+
+cpipe.ConnectPool(host = "localhost", port = 6379, pool = 10)
+for key in range(10000):
+    cpipe.phset("words", "word|{}".format(key), "1")
+
+
+
