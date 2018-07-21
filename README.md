@@ -1,4 +1,4 @@
-# cgo
+# gopipe
 
 Project moved to https://github.com/deslum/gopipe
 
